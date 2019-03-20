@@ -87,7 +87,7 @@ void parseMainArg(int argc, char *argv[]){
 
 
 void initCache(){
-    printf("%d,%d,%d, %ld\n", Sets, E , Blocks, sizeof(CacheLine));
+    //printf("%d,%d,%d, %ld\n", Sets, E , Blocks, sizeof(CacheLine));
 
     cacheTable = (CacheLine *)calloc(Sets * E , sizeof(CacheLine));
     for(int i = 0; i < Sets * E ; i ++)
@@ -96,7 +96,7 @@ void initCache(){
     hits= 0;
     misses= 0;
     evicts = 0;
-    printf("init complete index of cache table : %ld\n",sizeof(cacheTable[Sets*E -1]) );
+    //printf("init complete index of cache table : %ld\n",sizeof(cacheTable[Sets*E -1]) );
  }
 
 
@@ -237,6 +237,9 @@ void doCache(LineInfo info)
 void processLine(char *line){
         LineInfo info  = parseLine(line);
         //printf("%d, %lx, %d \n", info.opType, info.addr,info.size);
+        if(info.opType == Inst)
+            return ;
+        else
         doCache(info);
 }
 void processFile(){
