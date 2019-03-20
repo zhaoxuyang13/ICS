@@ -29,20 +29,26 @@ bool_t verbose = FALSE;
 /*
 cache table
 */
-int currentTime; // identify timeStamp.  increment at every new op
+long currentTime; // identify timeStamp.  increment at every new op
 typedef struct{
      bool_t isValid;
-    long addr;
     long  tag;
     long timeStamp;
 } CacheLine;
 CacheLine*  cacheTable;
 
 typedef struct{
-    opType_t opType_t;
+    opType_t opType;
     long addr;
     int size;
 } LineInfo;
+
+/*
+counters;
+*/
+int hits, misses, evicts;
+
+
 extern int optind,opterr,optopt;
 extern char* optarg;
 extern int getopt(int argc, char *const*argv, const char * optstring);
@@ -87,6 +93,9 @@ void initCache(){
     for(int i = 0; i < Sets * E ; i ++)
         cacheTable[i].isValid = FALSE;   //cold cache
     currentTime = 0;
+    hits= 0;
+    misses= 0;
+    evicts = 0;
     printf("init complete index of cache table : %ld\n",sizeof(cacheTable[Sets*E -1]) );
  }
 
@@ -119,20 +128,23 @@ void initCache(){
  {
         LineInfo info;
         /* type*/
-        if(IsSpace(line[0]))
+        if(IsSpace(*line))
         {
             skipSpace(line);
-            switch(line[1])
+            switch(*line)
             {
-                case 'M':  info.opType_t = Mod; break;
-                case 'L' : info.opType_t = Load; break ;
-                case 'S' : info.opType_t =Store; break ;
+                case 'M':
+                    info.opType = Mod; break;
+                case 'L' :
+                    info.opType = Load; break;
+                case 'S' :
+                    info.opType =Store; break;
             }
             line ++;
         }
         else
         {
-            info.opType_t = Inst;
+            info.opType= Inst;
             line ++;
         }
         /*addr*/
@@ -141,27 +153,102 @@ void initCache(){
         /*size*/
         line ++; // skip ',';
         info.size= strtoul(line, &line, 10);
+
         return info;
  }
+ /*
+ if         hit     return index
+            miss  return NULL
+
+ */
+int findCache(int setNo, long tag)
+{
+     for(int i = setNo * E; i < (setNo+1)*E; i ++)
+    {
+        if(cacheTable[i].isValid == FALSE)
+            continue;
+        if(tag == cacheTable[i].tag)
+            return i;
+    }
+    return FALSE;
+}
+char OPTYPE[4] = {'I', 'L','S','M'};
+void doCache(LineInfo info)
+{
+        int setNo = ( info.addr >> blockBits ) &  (0xffffffff >>( 32-setBits));
+        //printf("setNo: %x ", setNo);
+        long tag = info.addr >> (blockBits + setBits);
+        //printf("tag: %ld\n", tag);
+        if(info.opType == Load || info.opType == Store || info.opType == Mod)
+        {
+            int index =findCache(setNo,tag);
+            if(index)
+            {
+                hits++;
+                cacheTable[index].timeStamp = ++currentTime;
+                printf("%c %lx,%d hit",OPTYPE[info.opType], info.addr, info.size);
+            }
+            else
+            {
+                misses++;
+                bool_t haveColdCache = FALSE;
+                for(int i = setNo * E; i < (setNo+1)*E; i ++)
+                {
+                    if(!cacheTable[i].isValid) // find coldcache
+                    {
+                        haveColdCache = TRUE;
+                        CacheLine tmp;
+                        tmp.isValid = TRUE;
+                        tmp.tag = tag;
+                        tmp.timeStamp = ++currentTime;
+                        cacheTable[i] = tmp;
+                    }
+                }
+                if(!haveColdCache)  // start eviction
+                {
+                    evicts ++ ;
+                    long LRTime = currentTime + 1;
+                    int LRIndex = -1;
+                    for(int i = setNo * E; i < (setNo+1)*E; i ++)
+                    {
+                        if(cacheTable[i].timeStamp < LRTime)
+                        {
+                            LRTime = cacheTable[i].timeStamp;
+                            LRIndex = i;
+                        }
+                    }
+                    CacheLine tmp;
+                    tmp.isValid = TRUE;
+                    tmp.tag = tag;
+                    tmp.timeStamp = ++currentTime;
+                    cacheTable[LRIndex] = tmp;
+                    printf("%c %lx,%d miss eviction",OPTYPE[info.opType], info.addr, info.size);
+                }
+                else printf("%c %lx,%d miss",OPTYPE[info.opType], info.addr, info.size);
+            }
+        }
+        if(info.opType == Mod)
+        {
+            hits++;
+            printf(" hit");
+        }
+        printf("\n");
+}
 void processLine(char *line){
         LineInfo info  = parseLine(line);
-        printf("%d, %ld, %d \n", info.opType_t, info.addr,info.size);
-
-
-
-
+        //printf("%d, %lx, %d \n", info.opType, info.addr,info.size);
+        doCache(info);
 }
 void processFile(){
         FILE *fp  = NULL;
         if((fp = fopen(fileLocation, "r")) == NULL)
         {
-            printf("can't find file.");
+            error("cannot_find_file");
             exit(1);
         }
         char line[MAX_LINE_LENTH];
-        while(!feof(fp))
+        while(fgets(line,MAX_LINE_LENTH,fp))
         {
-            fgets(line,MAX_LINE_LENTH,fp);
             processLine(line);
         }
 }
@@ -170,6 +257,6 @@ int main(int argc, char *argv[])
      parseMainArg(argc, argv);
      initCache();
      processFile();
-
+    printSummary(hits,misses,evicts);
     return 0;
 }
