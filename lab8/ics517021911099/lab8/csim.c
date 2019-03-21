@@ -170,19 +170,19 @@ int findCache(int setNo, long tag)
         if(tag == cacheTable[i].tag)
             return i;
     }
-    return FALSE;
+    return -1;
 }
 char OPTYPE[4] = {'I', 'L','S','M'};
 void doCache(LineInfo info)
 {
         int setNo = ( info.addr >> blockBits ) &  (0xffffffff >>( 32-setBits));
-        //printf("setNo: %x ", setNo);
+        printf("setNo: %x ", setNo);
         long tag = info.addr >> (blockBits + setBits);
-        //printf("tag: %ld\n", tag);
+        printf("tag: %ld\n", tag);
         if(info.opType == Load || info.opType == Store || info.opType == Mod)
         {
             int index =findCache(setNo,tag);
-            if(index)
+            if(index >= 0)
             {
                 hits++;
                 cacheTable[index].timeStamp = ++currentTime;
@@ -202,6 +202,8 @@ void doCache(LineInfo info)
                         tmp.tag = tag;
                         tmp.timeStamp = ++currentTime;
                         cacheTable[i] = tmp;
+                        printf("cache to new cache %d \n", i);
+                        break;
                     }
                 }
                 if(!haveColdCache)  // start eviction
@@ -240,7 +242,7 @@ void processLine(char *line){
         if(info.opType == Inst)
             return ;
         else
-        doCache(info);
+            doCache(info);
 }
 void processFile(){
         FILE *fp  = NULL;
