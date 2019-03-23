@@ -53,6 +53,7 @@ extern int optind,opterr,optopt;
 extern char* optarg;
 extern int getopt(int argc, char *const*argv, const char * optstring);
 
+
 void parseMainArg(int argc, char *argv[]){
     char ch;
     while((ch = getopt(argc,argv,"hvs:E:b:t:"))  != -1)
@@ -61,7 +62,7 @@ void parseMainArg(int argc, char *argv[]){
         {
             case 'h':
                 printf("Some usage info \n");
-                break;
+                return ;
             case 'v':
                 verbose = TRUE;
                 break;
@@ -176,17 +177,16 @@ char OPTYPE[4] = {'I', 'L','S','M'};
 void doCache(LineInfo info)
 {
         int setNo = ( info.addr >> blockBits ) &  (0xffffffff >>( 32-setBits));
-        printf("setNo: %x ", setNo);
         long tag = info.addr >> (blockBits + setBits);
-        printf("tag: %ld\n", tag);
+
         if(info.opType == Load || info.opType == Store || info.opType == Mod)
         {
-            int index =findCache(setNo,tag);
+            int index =findCache(setNo,tag); // return -1 if miss, return index if hit
             if(index >= 0)
             {
                 hits++;
                 cacheTable[index].timeStamp = ++currentTime;
-                printf("%c %lx,%d hit",OPTYPE[info.opType], info.addr, info.size);
+                if(verbose == TRUE) printf("%c %lx,%d hit",OPTYPE[info.opType], info.addr, info.size);
             }
             else
             {
@@ -202,11 +202,10 @@ void doCache(LineInfo info)
                         tmp.tag = tag;
                         tmp.timeStamp = ++currentTime;
                         cacheTable[i] = tmp;
-                        printf("cache to new cache %d \n", i);
                         break;
                     }
                 }
-                if(!haveColdCache)  // start eviction
+                if(!haveColdCache)  // no cold cache exist, start eviction
                 {
                     evicts ++ ;
                     long LRTime = currentTime + 1;
@@ -224,21 +223,20 @@ void doCache(LineInfo info)
                     tmp.tag = tag;
                     tmp.timeStamp = ++currentTime;
                     cacheTable[LRIndex] = tmp;
-                    printf("%c %lx,%d miss eviction",OPTYPE[info.opType], info.addr, info.size);
+                    if(verbose == TRUE)  printf("%c %lx,%d miss eviction",OPTYPE[info.opType], info.addr, info.size);
                 }
-                else printf("%c %lx,%d miss",OPTYPE[info.opType], info.addr, info.size);
+                else  if(verbose == TRUE)  printf("%c %lx,%d miss",OPTYPE[info.opType], info.addr, info.size);
             }
         }
         if(info.opType == Mod)
         {
             hits++;
-            printf(" hit");
+             if(verbose == TRUE)  printf(" hit");
         }
-        printf("\n");
+         if(verbose == TRUE)  printf("\n");
 }
 void processLine(char *line){
         LineInfo info  = parseLine(line);
-        //printf("%d, %lx, %d \n", info.opType, info.addr,info.size);
         if(info.opType == Inst)
             return ;
         else
