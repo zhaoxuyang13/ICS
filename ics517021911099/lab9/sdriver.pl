@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 #!/usr/local/bin/perl
+use lib '.';
 use Getopt::Std;
 use FileHandle;
 use IPC::Open2;

@@ -1,0 +1,10 @@
+# depslib dependency file v1.0
+1553173526 source:/home/sean/SE/icslabs/lab8/ics517021911099/lab8/csim.c
+	"cachelab.h"
+	<stdio.h>
+	<stdlib.h>
+	<unistd.h>
+	<math.h>
+
+1552884053 /home/sean/SE/icslabs/lab8/ics517021911099/lab8/cachelab.h
+
