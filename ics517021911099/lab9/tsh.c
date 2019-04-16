@@ -218,7 +218,7 @@ void eval(char *cmdline)
             Sigprocmask(SIG_UNBLOCK,&set,NULL);
             setpgid(0,0); /*set child's process groupid = pid */
             if(execve(argv[0],argv, environ) < 0){   /*child run user job*/
-                printf("%s: Command not found. \n",argv[0]);
+                printf("%s: Command not found\n",argv[0]);
                 exit(0);
             }
             printf("control should never reach here");
@@ -384,12 +384,12 @@ void do_bgfg(char **argv)
 
     struct job_t *job = getjobjid(jobs,jid);
     if(cmd == BG){
-        kill(job->pid, SIGCONT);
+        kill(-job->pid, SIGCONT);
         job->state = BG;
         printf("[%d] (%d) %s",jid,job->pid,job->cmdline);
     }
     if(cmd == FG){
-        kill(job->pid, SIGCONT);
+        kill(-job->pid, SIGCONT);
         job->state=FG;  //TODO: how to run in fg
         waitfg(job->pid);
     }
@@ -422,6 +422,7 @@ void sigchld_handler(int sig)
     //printf("chld hand\n");
     int status = 0;
     int pid = 0;
+
     if((pid = waitpid(-1, &status,WUNTRACED|WNOHANG)) < 0)
         unix_error("waitfg: waitpid error");
     if(!WIFEXITED(status)){
@@ -434,7 +435,6 @@ void sigchld_handler(int sig)
             getjobpid(jobs,pid)->state=ST;
         }
     }else deletejob(jobs,pid);
-
     return;
 }
 
@@ -468,7 +468,7 @@ void sigtstp_handler(int sig)
         //printf("no fg job running now. \n");
         return;
     }
-    //printf("Pid: %d, Pgrp:\n",pid );
+    //printf("Pid: %d, Pgrp:%d\n",pid,getpgrp() );
     //listjobs(jobs);
     kill(-pid,SIGTSTP);      //send  SIGINT to the process group of current fg job.
     return;
