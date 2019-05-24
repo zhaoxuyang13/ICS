@@ -138,7 +138,7 @@ int main(int argc, char **argv)
 	/* Read command line */
         if (emit_prompt) {
             printf("%s", prompt);
-            fflush(stdout);
+            fflush(stdout);          /*TODO: why fflush*/
         }
         if ((fgets(cmdline, MAXLINE, stdin) == NULL) && ferror(stdin))
             app_error("fgets error");
@@ -159,10 +159,7 @@ int main(int argc, char **argv)
 
 /*
 *   Fork safe version of fork();
-*   safer versions of orther helper functions;
-*   int sigprocmast(int how,const sigset_t *set, sigset_t *oldset);
-*   int sigemptyset(sigset_t *set);
-*   int sigaddset(sigset_t *set, int signum);
+*   safer versions of help functions;
 */
 pid_t Fork(void){
     pid_t pid;
@@ -220,7 +217,6 @@ void eval(char *cmdline)
 
             Sigprocmask(SIG_UNBLOCK,&set,NULL);
             setpgid(0,0); /*set child's process groupid = pid */
-
             if(execve(argv[0],argv, environ) < 0){   /*child run user job*/
                 printf("%s: Command not found\n",argv[0]);
                 exit(0);
@@ -405,10 +401,8 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    sigset_t mask;
-    Sigemptyset(&mask);        //TODO: change empty set
-    while(fgpid(jobs) == pid)  // safe method sigsuspend guaranteed by OS
-        sigsuspend(&mask);
+    while(fgpid(jobs) == pid)  // leave cpu to other processes
+        sleep(0);
     return ;
 }
 
