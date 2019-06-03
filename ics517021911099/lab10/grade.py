@@ -927,7 +927,7 @@ def main():
         quiet = True
     strace = args.strace
     verbose = args.verbose
-    outside_proxy = args.outside[0] # todelete
+    outside_proxy = args.outside# todelete
     if args.only == None:
         args.only = ["all"]
 
@@ -945,4 +945,5 @@ def main():
         print "Score: %d / %d" % (your_score, total_score)
 
 if __name__ == "__main__":
-    main()
+    while(True):
+        main()

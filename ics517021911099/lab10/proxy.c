@@ -46,6 +46,8 @@ int parse_uri(char *uri, char *target_addr, char *path, char *port);
 void format_log_entry(char *logstring, struct sockaddr_in *sockaddr, char *uri, size_t size);
 
 
+/* global variables */
+sem_t sem;
 /*
  * main - Main routine for the proxy program
  */
@@ -58,22 +60,25 @@ int main(int argc, char **argv)
         exit(0);
     }
 
-    int listenfd, connfd;
+    int listenfd;
+    void *connfdp;/*(!2) use void* to pass 3 args through one pointer */
     socklen_t clientlen;
-    struct sockaddr_storage clientaddr; /*the same as _in but with 128 bytes*/
     char client_hostname[MAXLINE], client_port[MAXLINE];
 
-    Signal(SIGPIPE,SIG_IGN);
-
+    sem_init(&sem,0,1);
+   
+    Signal(SIGPIPE,SIG_IGN); /*(!1) ignore sigpipe so kernel will not shut down program when client or server crashed*/
+   
     listenfd = Open_listenfd(argv[1]);
+   
     while(1){
-        clientlen = sizeof(struct sockaddr_storage);
-        connfd = Accept(listenfd, (SA*)&clientaddr, &clientlen);
-        Getnameinfo((SA*)&clientaddr, clientlen, client_hostname, MAXLINE,
+        clientlen = sizeof(struct sockaddr_in);
+        connfdp = Malloc(sizeof(int) + sizeof(pthread_t) + sizeof(struct sockaddr_in));
+        *(int *)connfdp = Accept(listenfd, (SA*)(connfdp + sizeof(int)+sizeof(pthread_t)), &clientlen);
+        Getnameinfo((SA*)(connfdp + sizeof(int)+sizeof(pthread_t)), clientlen, client_hostname, MAXLINE,
                                client_port, MAXLINE, 0);
         //printf("Connected to (%s, %s)\n",client_hostname,client_port);
-        doproxy(connfd,(struct sockaddr_in *)&clientaddr);
-       	Close(connfd);
+        Pthread_create((pthread_t *)(connfdp + sizeof(int)),NULL,thread,connfdp);
     }
     exit(0);
 }
@@ -85,21 +90,22 @@ int main(int argc, char **argv)
 void *thread(void *vargp)
 {
 	int connfd = *((int *)vargp);
-	int tid = *(((int *)vargp)+1)
-	printf("%d,%d\n",connfd,tid );
+	pthread_t tid = *((pthread_t *)(vargp+sizeof(int)));
+	struct sockaddr_in clientaddr = *(struct sockaddr_in *)(vargp + sizeof(int) + sizeof(pthread_t));
+//	printf("%d,%lu\n",connfd,tid);
+//	printf("%u,%u,%u\n",clientaddr.sin_family,clientaddr.sin_port,clientaddr.sin_addr);
 	Pthread_detach(pthread_self());
 	Free(vargp);
-	echo(connfd)
-
+	doproxy(connfd,&clientaddr);
+	Close(connfd);
+	return NULL;
 }
 /* void doproxy(int connfd)
     proxy main body;
 */
 void doproxy(int fd,struct sockaddr_in *clientaddr)
 {
-    struct stat sbuf;
     char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
-    char filename[MAXLINE];
     char requestline[MAXLINE];
     rio_t r_client;
     size_t size = 0;
@@ -236,8 +242,9 @@ void doproxy(int fd,struct sockaddr_in *clientaddr)
 	/*write log*/
     char logstring[MAXLINE];
 	format_log_entry(logstring,clientaddr,uri,size);
+	P(&sem);
 	printf("%s\n",logstring);
-
+	V(&sem);
     return ;	
 
 }
